@@ -1,0 +1,33 @@
+[Unit]
+Description=Azure Service Discovery Daemon for HAProxy
+After=network-online.target haproxy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=haproxy
+Group=haproxy
+ExecStart=/usr/local/bin/haproxy-azure-discovery -c /etc/haproxy-azure-discovery/config.yaml
+Restart=on-failure
+RestartSec=10
+
+# Environment file for secrets (AZURE_SUBSCRIPTION_ID, HAPROXY_DATAPLANE_PASSWORD, etc.)
+EnvironmentFile=-/etc/haproxy-azure-discovery/env
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadOnlyPaths=/etc/haproxy-azure-discovery
+
+[Install]
+WantedBy=multi-user.target

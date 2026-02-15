@@ -1,0 +1,46 @@
+# Azure Service Discovery for HAProxy — Example Configuration
+# Copy to config.yaml and adjust values. Use ${ENV_VAR} for secrets.
+
+azure:
+  subscription_id: "${AZURE_SUBSCRIPTION_ID}"
+  # Optional: limit discovery to specific resource groups (empty = all)
+  resource_groups: []
+  credential_type: "default"  # Uses DefaultAzureCredential
+
+tags:
+  service_name_tag: "HAProxy:Service:Name"
+  service_port_tag: "HAProxy:Service:Port"
+  instance_port_tag: "HAProxy:Instance:Port"
+  # Allowlist: instance must match ALL tags (AND logic)
+  allowlist: {}
+    # environment: "production"
+  # Denylist: instance excluded if ANY tag matches (OR logic)
+  denylist: {}
+    # HAProxy:Exclude: "true"
+
+haproxy:
+  base_url: "http://localhost:5555"
+  api_version: "v2"
+  username: "admin"
+  password: "${HAPROXY_DATAPLANE_PASSWORD}"
+  timeout: 10
+  verify_ssl: true
+  backend:
+    name_prefix: "azure"
+    name_separator: "-"
+    balance: "roundrobin"
+    mode: "http"
+  server_slots:
+    base: 10
+    growth_factor: 1.5
+    growth_type: "linear"  # "linear" or "exponential"
+
+polling:
+  interval_seconds: 30
+  jitter_seconds: 5
+  max_backoff_seconds: 300
+  backoff_base_seconds: 5
+
+logging:
+  level: "INFO"
+  format: "json"  # "json" or "text"

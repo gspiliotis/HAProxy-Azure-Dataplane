@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "haproxy-azure-discovery"
+version = "0.1.0"
+description = "Azure Service Discovery Daemon for HAProxy via the Dataplane API"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "azure-identity>=1.15.0",
+    "azure-mgmt-compute>=31.0.0",
+    "azure-mgmt-network>=25.0.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "responses>=0.25.0",
+]
+
+[project.scripts]
+haproxy-azure-discovery = "haproxy_azure_discovery.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["haproxy_azure_discovery*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
