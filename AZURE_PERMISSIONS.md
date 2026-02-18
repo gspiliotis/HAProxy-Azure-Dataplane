@@ -27,6 +27,7 @@ If Reader is too broad, create a custom role with only the actions the daemon us
     "Microsoft.Compute/virtualMachineScaleSets/read",
     "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read",
     "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/instanceView/read",
+    "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/networkInterfaces/read",
     "Microsoft.Network/networkInterfaces/read",
     "Microsoft.Network/publicIPAddresses/read"
   ],
