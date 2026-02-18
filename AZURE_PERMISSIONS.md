@@ -48,7 +48,7 @@ If Reader is too broad, create a custom role with only the actions the daemon us
 | `Microsoft.Compute/virtualMachineScaleSets/read` | `virtual_machine_scale_sets.list()`, `list_all()` | Enumerate VMSS resources and read their tags |
 | `Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read` | `virtual_machine_scale_set_vms.list()` | List individual instances within a VMSS |
 | `Microsoft.Compute/virtualMachineScaleSets/virtualMachines/instanceView/read` | `virtual_machine_scale_set_vms.get_instance_view()` | Check VMSS instance power state |
-| `Microsoft.Network/networkInterfaces/read` | `network_interfaces.get()`, `list_virtual_machine_scale_set_vm_network_interfaces()` | Resolve private IPs from VM and VMSS NICs |
+| `Microsoft.Network/networkInterfaces/read` | `network_interfaces.get()`, `get_virtual_machine_scale_set_network_interface()`, `list_virtual_machine_scale_set_vm_network_interfaces()` | Resolve private IPs from VM and VMSS NICs |
 | `Microsoft.Network/publicIPAddresses/read` | `public_ip_addresses.get()` | Resolve public IPs (optional — only used if a NIC has a public IP attached) |
 
 ## Entra ID App Registration Setup

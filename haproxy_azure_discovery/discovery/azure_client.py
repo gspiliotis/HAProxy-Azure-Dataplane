@@ -194,7 +194,7 @@ class AzureClient:
                     logger.debug("Skipping VMSS instance %s/%s — not running", vmss.name, inst_id)
                     continue
 
-                private_ip = self._resolve_vmss_instance_ip(rg, vmss.name, inst_id)
+                private_ip = self._resolve_vmss_instance_ip(rg, vmss.name, inst_id, vm_instance)
                 if not private_ip:
                     logger.warning("VMSS instance %s/%s has no private IP, skipping", vmss.name, inst_id)
                     continue
@@ -245,8 +245,38 @@ class AzureClient:
             )
         return False
 
-    def _resolve_vmss_instance_ip(self, resource_group: str, vmss_name: str, instance_id: str) -> str | None:
-        """Resolve the private IP of a VMSS instance via its network interfaces."""
+    def _resolve_vmss_instance_ip(self, resource_group: str, vmss_name: str, instance_id: str, vm_instance=None) -> str | None:
+        """Resolve the private IP of a VMSS instance via its network interfaces.
+
+        VMSS NICs require dedicated APIs — the standard NIC get/list used for
+        standalone VMs will not return results.  The targeted GET
+        (get_virtual_machine_scale_set_network_interface) reliably returns full
+        IP configuration, whereas the list API may omit private_ip_address.
+        """
+        # Primary: extract NIC names from the VM instance's network profile and
+        # use the targeted GET which reliably returns IP details.
+        if (
+            vm_instance
+            and vm_instance.network_profile
+            and vm_instance.network_profile.network_interfaces
+        ):
+            for nic_ref in vm_instance.network_profile.network_interfaces:
+                nic_name = nic_ref.id.split("/")[-1]
+                try:
+                    nic = self._network.network_interfaces.get_virtual_machine_scale_set_network_interface(
+                        resource_group, vmss_name, instance_id, nic_name,
+                    )
+                    for ip_config in (nic.ip_configurations or []):
+                        if ip_config.private_ip_address:
+                            return ip_config.private_ip_address
+                except Exception:
+                    logger.debug(
+                        "Could not fetch NIC %s for VMSS instance %s/%s/%s",
+                        nic_name, resource_group, vmss_name, instance_id,
+                        exc_info=True,
+                    )
+
+        # Fallback: list all NICs for this VMSS VM.
         try:
             nics = self._network.network_interfaces.list_virtual_machine_scale_set_vm_network_interfaces(
                 resource_group, vmss_name, instance_id,
@@ -257,7 +287,7 @@ class AzureClient:
                         return ip_config.private_ip_address
         except Exception:
             logger.debug(
-                "Could not resolve IP for VMSS instance %s/%s/%s",
+                "Could not list NICs for VMSS instance %s/%s/%s",
                 resource_group, vmss_name, instance_id, exc_info=True,
             )
         return None
