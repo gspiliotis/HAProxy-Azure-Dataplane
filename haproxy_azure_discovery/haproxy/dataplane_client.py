@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 class DataplaneClient:
-    """Thin wrapper around the HAProxy Dataplane API v2."""
+    """Thin wrapper around the HAProxy Dataplane API (v2 and v3)."""
 
     def __init__(self, config: HAProxyConfig):
         self._base = f"{config.base_url}/{config.api_version}"
+        self._api_version = int(config.api_version.lstrip("v"))
         self._session = requests.Session()
         self._session.auth = (config.username, config.password)
         self._session.headers["Content-Type"] = "application/json"
@@ -51,7 +52,8 @@ class DataplaneClient:
     def list_backends(self, transaction_id: str | None = None) -> list[dict[str, Any]]:
         params = self._txn_params(transaction_id)
         resp = self._get("/services/haproxy/configuration/backends", params=params)
-        return resp.json().get("data", [])
+        body = resp.json()
+        return body if isinstance(body, list) else body.get("data", [])
 
     def get_backend(self, name: str, transaction_id: str | None = None) -> dict[str, Any] | None:
         params = self._txn_params(transaction_id)
@@ -74,24 +76,46 @@ class DataplaneClient:
 
     # ── Servers ─────────────────────────────────────────────────────
 
+    def _server_path(self, backend: str, server_name: str | None = None) -> tuple[str, dict[str, str]]:
+        """Build path and extra query params for server endpoints.
+
+        v2: flat ``/configuration/servers?backend=…``
+        v3: nested ``/configuration/backends/{backend}/servers``
+        """
+        if self._api_version >= 3:
+            path = f"/services/haproxy/configuration/backends/{backend}/servers"
+            if server_name:
+                path += f"/{server_name}"
+            return path, {}
+
+        path = "/services/haproxy/configuration/servers"
+        if server_name:
+            path += f"/{server_name}"
+        return path, {"backend": backend}
+
     def list_servers(self, backend: str, transaction_id: str | None = None) -> list[dict[str, Any]]:
         params = self._txn_params(transaction_id)
-        resp = self._get(f"/services/haproxy/configuration/servers", params={**params, "backend": backend})
-        return resp.json().get("data", [])
+        path, extra = self._server_path(backend)
+        resp = self._get(path, params={**params, **extra})
+        body = resp.json()
+        return body if isinstance(body, list) else body.get("data", [])
 
     def create_server(self, backend: str, data: dict[str, Any], transaction_id: str) -> dict[str, Any]:
-        params = {**self._txn_params(transaction_id), "backend": backend}
-        resp = self._post("/services/haproxy/configuration/servers", json=data, params=params)
+        path, extra = self._server_path(backend)
+        params = {**self._txn_params(transaction_id), **extra}
+        resp = self._post(path, json=data, params=params)
         return resp.json()
 
     def replace_server(self, name: str, backend: str, data: dict[str, Any], transaction_id: str) -> dict[str, Any]:
-        params = {**self._txn_params(transaction_id), "backend": backend}
-        resp = self._put(f"/services/haproxy/configuration/servers/{name}", json=data, params=params)
+        path, extra = self._server_path(backend, name)
+        params = {**self._txn_params(transaction_id), **extra}
+        resp = self._put(path, json=data, params=params)
         return resp.json()
 
     def delete_server(self, name: str, backend: str, transaction_id: str) -> None:
-        params = {**self._txn_params(transaction_id), "backend": backend}
-        self._delete(f"/services/haproxy/configuration/servers/{name}", params=params)
+        path, extra = self._server_path(backend, name)
+        params = {**self._txn_params(transaction_id), **extra}
+        self._delete(path, params=params)
 
     # ── Internal HTTP helpers ───────────────────────────────────────
 
