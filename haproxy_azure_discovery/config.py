@@ -80,6 +80,9 @@ class HAProxyConfig:
     verify_ssl: bool = True
     backend: BackendConfig = field(default_factory=BackendConfig)
     server_slots: ServerSlotsConfig = field(default_factory=ServerSlotsConfig)
+    availability_zone: int | None = None
+    az_weight_tag: str = "HAProxy:Instance:AZperc"
+    backend_options: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

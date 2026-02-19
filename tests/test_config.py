@@ -107,3 +107,30 @@ class TestLoadConfig:
         path.write_text("just a string")
         with pytest.raises(ConfigError, match="mapping"):
             load_config(str(path))
+
+    def test_az_fields_load(self, tmp_path):
+        data = {
+            "azure": {"subscription_id": "sub-123"},
+            "haproxy": {
+                "availability_zone": 2,
+                "az_weight_tag": "Custom:AZ:Tag",
+                "backend_options": {
+                    "MyApp": {
+                        "cookie": {"name": "STICK", "type": "insert"},
+                    },
+                },
+            },
+        }
+        config = load_config(_write_config(tmp_path, data))
+        assert config.haproxy.availability_zone == 2
+        assert config.haproxy.az_weight_tag == "Custom:AZ:Tag"
+        assert config.haproxy.backend_options == {
+            "MyApp": {"cookie": {"name": "STICK", "type": "insert"}},
+        }
+
+    def test_az_fields_defaults(self, tmp_path):
+        data = {"azure": {"subscription_id": "sub-123"}}
+        config = load_config(_write_config(tmp_path, data))
+        assert config.haproxy.availability_zone is None
+        assert config.haproxy.az_weight_tag == "HAProxy:Instance:AZperc"
+        assert config.haproxy.backend_options == {}

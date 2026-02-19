@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ..config import BackendConfig, HAProxyConfig
-from ..discovery.models import AzureService
+from ..config import HAProxyConfig
+from ..discovery.models import AzureService, DiscoveredInstance
 from ..exceptions import DataplaneVersionConflict
 from .dataplane_client import DataplaneClient
 from .slot_allocator import SlotAllocator
@@ -24,6 +24,9 @@ class Reconciler:
         self._client = DataplaneClient(config)
         self._backend_cfg = config.backend
         self._slot_allocator = SlotAllocator(config.server_slots)
+        self._haproxy_az = config.availability_zone
+        self._az_weight_tag = config.az_weight_tag
+        self._backend_options = config.backend_options
 
     def reconcile(
         self,
@@ -77,7 +80,7 @@ class Reconciler:
         )
 
         # Ensure the backend exists
-        self._ensure_backend(txn, backend_name)
+        self._ensure_backend(txn, backend_name, service.service_name)
 
         # Calculate slots
         total_slots = self._slot_allocator.calculate_slots(service.active_count)
@@ -94,7 +97,7 @@ class Reconciler:
         for i, slot_name in enumerate(slot_names):
             if i < len(active_instances):
                 inst = active_instances[i]
-                server_data = self._active_server_data(slot_name, inst.private_ip, inst.effective_port)
+                server_data = self._active_server_data(slot_name, inst.private_ip, inst.effective_port, inst)
             else:
                 server_data = self._maintenance_server_data(slot_name)
 
@@ -130,33 +133,57 @@ class Reconciler:
 
     # ── Backend helpers ─────────────────────────────────────────────
 
-    def _ensure_backend(self, txn: Transaction, name: str) -> None:
+    def _ensure_backend(self, txn: Transaction, name: str, service_name: str = "") -> None:
         """Create the backend if it does not already exist."""
         existing = self._client.get_backend(name, txn.id)
         if existing is not None:
             return
 
         logger.info("Creating backend %s", name)
-        self._client.create_backend(
-            {
-                "name": name,
-                "mode": self._backend_cfg.mode,
-                "balance": {"algorithm": self._backend_cfg.balance},
-            },
-            txn.id,
-        )
+        backend_data: dict[str, Any] = {
+            "name": name,
+            "mode": self._backend_cfg.mode,
+            "balance": {"algorithm": self._backend_cfg.balance},
+        }
+        extra = self._backend_options.get(service_name, {})
+        if extra:
+            backend_data.update(extra)
+        self._client.create_backend(backend_data, txn.id)
 
     # ── Server data builders ────────────────────────────────────────
 
-    @staticmethod
-    def _active_server_data(name: str, address: str, port: int) -> dict[str, Any]:
-        return {
+    def _active_server_data(self, name: str, address: str, port: int, instance: DiscoveredInstance | None = None) -> dict[str, Any]:
+        server_data: dict[str, Any] = {
             "name": name,
             "address": address,
             "port": port,
             "maintenance": "disabled",
             "check": "enabled",
+            "cookie": name,
         }
+
+        if self._haproxy_az is not None and instance is not None:
+            # Parse AZ weight percentage tag (1-99)
+            az_perc = self._parse_az_perc(instance.tags.get(self._az_weight_tag))
+            same_az = instance.availability_zone is None or instance.availability_zone == self._haproxy_az
+
+            if az_perc is not None:
+                server_data["weight"] = (100 - az_perc) if same_az else az_perc
+            elif not same_az:
+                server_data["backup"] = "enabled"
+
+        return server_data
+
+    @staticmethod
+    def _parse_az_perc(raw: str | None) -> int | None:
+        """Parse the AZ weight percentage tag value. Returns int in 1-99 range or None."""
+        if raw is None:
+            return None
+        try:
+            val = int(raw)
+        except (ValueError, TypeError):
+            return None
+        return val if 1 <= val <= 99 else None
 
     @staticmethod
     def _maintenance_server_data(name: str) -> dict[str, Any]:

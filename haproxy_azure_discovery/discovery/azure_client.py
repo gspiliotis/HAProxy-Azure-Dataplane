@@ -82,6 +82,7 @@ class AzureClient:
                 continue
 
             created_at = self._parse_timestamp(vm.time_created) if hasattr(vm, "time_created") and vm.time_created else None
+            az = int(vm.zones[0]) if vm.zones else None
 
             instances.append(DiscoveredInstance(
                 instance_id=vm.vm_id or vm.id,
@@ -95,6 +96,7 @@ class AzureClient:
                 source="vm",
                 tags=tags,
                 public_ip=public_ip,
+                availability_zone=az,
                 created_at=created_at,
                 power_state="running",
             ))
@@ -211,6 +213,7 @@ class AzureClient:
 
                 unique_id = f"{vmss.id}/virtualMachines/{inst_id}"
                 vm_name = vm_instance.name or f"{vmss.name}_{inst_id}"
+                az = int(vm_instance.zones[0]) if vm_instance.zones else None
 
                 instances.append(DiscoveredInstance(
                     instance_id=unique_id,
@@ -223,6 +226,7 @@ class AzureClient:
                     resource_group=rg,
                     source="vmss",
                     tags=inst_tags,
+                    availability_zone=az,
                     power_state="running",
                 ))
 

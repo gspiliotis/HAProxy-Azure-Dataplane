@@ -35,6 +35,23 @@ haproxy:
     growth_factor: 1.5
     growth_type: "linear"  # "linear" or "exponential"
 
+  # AZ where this HAProxy instance runs (omit to disable AZ-aware routing)
+  # availability_zone: 1
+
+  # Tag name for per-instance AZ weight percentage (1-99)
+  # az_weight_tag: "HAProxy:Instance:AZperc"
+
+  # Per-service extra backend options (Dataplane API JSON format)
+  # Merged into the backend creation payload when a new backend is created.
+  # backend_options:
+  #   MyApp:
+  #     cookie:
+  #       name: "STICK"
+  #       type: "insert"
+  #       indirect: true
+  #       nocache: true
+  #       httponly: true
+
 polling:
   interval_seconds: 30
   jitter_seconds: 5

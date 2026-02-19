@@ -21,6 +21,7 @@ class DiscoveredInstance:
     tags: dict[str, str] = field(default_factory=dict)
     public_ip: str | None = None
     instance_port: int | None = None
+    availability_zone: int | None = None
     created_at: datetime | None = None
     power_state: str = "unknown"
 
