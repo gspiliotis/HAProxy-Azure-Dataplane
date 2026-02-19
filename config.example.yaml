@@ -35,22 +35,49 @@ haproxy:
     growth_factor: 1.5
     growth_type: "linear"  # "linear" or "exponential"
 
-  # AZ where this HAProxy instance runs (omit to disable AZ-aware routing)
+  # ── AZ-aware routing ──────────────────────────────────────────────
+  # Azure Availability Zone where this HAProxy instance runs (1, 2, or 3).
+  # Omit or set to null to disable AZ-aware routing entirely.
+  #
+  # When set, servers are annotated based on AZ proximity:
+  #   - Same AZ (or instance has no zone): no extra options (full weight)
+  #   - Different AZ, no AZperc tag:       server marked as "backup"
+  #   - With AZperc tag (1-99):            same AZ gets weight=(100-AZperc),
+  #                                        diff AZ gets weight=AZperc
+  #
+  # All active servers always get a "cookie" value equal to the server name.
+  #
   # availability_zone: 1
 
-  # Tag name for per-instance AZ weight percentage (1-99)
+  # Tag name on Azure VMs/VMSS instances that carries the AZ weight percentage.
+  # Value must be an integer 1-99. For example, AZperc=10 means:
+  #   - Same-AZ servers get weight 90 (100-10)
+  #   - Cross-AZ servers get weight 10
+  # Default: "HAProxy:Instance:AZperc"
+  #
   # az_weight_tag: "HAProxy:Instance:AZperc"
 
-  # Per-service extra backend options (Dataplane API JSON format)
-  # Merged into the backend creation payload when a new backend is created.
+  # ── Per-service backend options ──────────────────────────────────
+  # Extra properties merged into the Dataplane API create-backend payload
+  # when a backend is first created. Keyed by the service name tag value
+  # (i.e. the value of HAProxy:Service:Name on the Azure resources).
+  #
+  # Any valid Dataplane API backend field can be used here — common
+  # examples include cookie stickiness, custom timeouts, and HTTP options.
+  #
   # backend_options:
-  #   MyApp:
+  #   # Enable cookie-based session stickiness for the "WebApp" service
+  #   WebApp:
   #     cookie:
-  #       name: "STICK"
+  #       name: "SRVID"
   #       type: "insert"
   #       indirect: true
   #       nocache: true
   #       httponly: true
+  #   # Custom server/connect timeouts for the "API" service
+  #   API:
+  #     server_timeout: 60000
+  #     connect_timeout: 5000
 
 polling:
   interval_seconds: 30
