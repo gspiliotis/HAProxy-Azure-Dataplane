@@ -44,6 +44,9 @@ The `Daemon` class in `daemon.py` orchestrates this loop with signal handling (S
 - **One transaction per cycle**: All changed services are updated in a single atomic Dataplane API transaction.
 - **Version-conflict retry**: The reconciler retries up to 3 times on HTTP 409 (another process modified HAProxy config).
 - **Server slot pre-allocation**: Backends always have at least `base` (default 10) server slots. Unused slots sit in maintenance mode, ready for scale-up without config changes.
+- **AZ-aware server weighting**: When `haproxy.availability_zone` is configured, active servers get `weight`/`backup` based on AZ proximity. The `HAProxy:Instance:AZperc` tag (1-99) controls proportional cross-AZ weighting; without it, cross-AZ servers are marked as backup. Instances with no zone are treated as same-AZ.
+- **Cookie on active servers**: All active server lines include `cookie: <server_name>` for session persistence support.
+- **Per-service backend options**: `haproxy.backend_options` is a dict keyed by service name, merged into the Dataplane API create-backend payload (e.g., cookie stickiness, custom timeouts).
 
 ### Two-Package Boundary
 
@@ -66,6 +69,16 @@ Instances are discovered by Azure resource tags (mirrors AWS convention):
 - `HAProxy:Service:Name` — maps to backend name
 - `HAProxy:Service:Port` — maps to backend port
 - `HAProxy:Instance:Port` — optional per-instance port override
+- `HAProxy:Instance:AZperc` — optional AZ weight percentage (1-99) for cross-AZ traffic splitting
+
+### AZ Routing Logic (in `reconciler.py`)
+
+The `_active_server_data` method computes per-server options when `haproxy.availability_zone` is set:
+- Parses the instance's `AZperc` tag via `_parse_az_perc()` (returns `int` in 1-99 or `None`)
+- `same_az` is true when the instance has no zone OR its zone matches HAProxy's AZ
+- With `AZperc`: same-AZ gets `weight = 100 - AZperc`, cross-AZ gets `weight = AZperc`
+- Without `AZperc`: cross-AZ gets `backup = "enabled"`, same-AZ has no extra options
+- `_ensure_backend` merges `backend_options[service_name]` into the create-backend payload
 
 ### Testing
 

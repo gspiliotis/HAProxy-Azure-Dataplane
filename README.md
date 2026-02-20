@@ -34,6 +34,7 @@ Tag your VMs or VMSS resources to make them discoverable:
 | `HAProxy:Service:Name` | Yes | Service name — becomes part of the backend name |
 | `HAProxy:Service:Port` | Yes | Port the service listens on |
 | `HAProxy:Instance:Port` | No | Per-instance port override (defaults to service port) |
+| `HAProxy:Instance:AZperc` | No | AZ weight percentage (1-99) for AZ-aware routing (see below) |
 
 These tag names follow the same convention as the built-in AWS EC2 service discovery and are configurable.
 
@@ -103,6 +104,11 @@ haproxy:
     base: 10                   # Minimum server slots per backend
     growth_factor: 1.5
     growth_type: "linear"      # "linear" or "exponential"
+  # availability_zone: 1      # AZ where HAProxy runs (1, 2, 3); omit to disable
+  # az_weight_tag: "HAProxy:Instance:AZperc"  # Tag for AZ weight percentage
+  # backend_options:           # Per-service extra Dataplane API backend properties
+  #   MyApp:
+  #     cookie: { name: "SRVID", type: "insert" }
 
 polling:
   interval_seconds: 30
@@ -189,6 +195,54 @@ Backends always maintain at least `base` server slots (default: 10). This allows
 - When active instances exceed the base, additional slots are allocated using the configured growth strategy:
   - **Linear**: `base + ceil((count - base) * growth_factor)`
   - **Exponential**: smallest `base * factor^n` that is `>= count`
+
+## AZ-Aware Routing
+
+When HAProxy runs in a specific Azure Availability Zone, you can configure the daemon to prefer backends in the same AZ. Set `haproxy.availability_zone` to the zone number (1, 2, or 3) where your HAProxy instance runs.
+
+The reconciler annotates each active server line based on AZ proximity:
+
+| Instance AZ | `AZperc` tag | Server effect |
+|-------------|-------------|---------------|
+| Same as HAProxy (or no zone) | Not set | No extra options (full weight) |
+| Different from HAProxy | Not set | `backup enabled` — only used when same-AZ servers are down |
+| Same as HAProxy (or no zone) | `10` | `weight 90` (100 - AZperc) |
+| Different from HAProxy | `10` | `weight 10` |
+
+The `AZperc` tag (configurable via `haproxy.az_weight_tag`) lets you do proportional cross-AZ traffic splitting instead of strict backup-only. A value of `10` means "send 10% of traffic to the other AZ."
+
+All active servers always get a `cookie` value equal to their server name, enabling cookie-based persistence when combined with `backend_options`.
+
+**Example config:**
+
+```yaml
+haproxy:
+  availability_zone: 1
+  # az_weight_tag: "HAProxy:Instance:AZperc"  # default
+```
+
+When `availability_zone` is omitted or `null`, AZ logic is disabled entirely — all servers are treated equally.
+
+## Per-Service Backend Options
+
+The `haproxy.backend_options` config lets you pass extra Dataplane API properties when a backend is first created. Options are keyed by the service name (the value of the `HAProxy:Service:Name` tag).
+
+```yaml
+haproxy:
+  backend_options:
+    WebApp:
+      cookie:
+        name: "SRVID"
+        type: "insert"
+        indirect: true
+        nocache: true
+        httponly: true
+    API:
+      server_timeout: 60000
+      connect_timeout: 5000
+```
+
+Any valid [Dataplane API backend field](https://www.haproxy.com/documentation/dataplaneapi/latest/) can be used. Options are merged into the create-backend payload and only take effect when a backend is first created (existing backends are not modified).
 
 ## Safety Guarantees
 
