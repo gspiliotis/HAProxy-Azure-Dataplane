@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .models import AzureService
+from .models import DiscoveredService
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,8 @@ class ChangeDetector:
 
     def detect(
         self,
-        current_services: dict[tuple[str, int, str], AzureService],
-    ) -> tuple[list[AzureService], list[tuple[str, int, str]]]:
+        current_services: dict[tuple[str, int, str], DiscoveredService],
+    ) -> tuple[list[DiscoveredService], list[tuple[str, int, str]]]:
         """Compare current services against the previous state.
 
         Returns:
@@ -42,7 +42,7 @@ class ChangeDetector:
             - changed_services: services that are new or have any changes
             - removed_keys: service keys that were in the previous state but not now
         """
-        changed: list[AzureService] = []
+        changed: list[DiscoveredService] = []
         removed: list[tuple[str, int, str]] = []
 
         current_keys = set(current_services.keys())
@@ -101,7 +101,7 @@ class ChangeDetector:
         return False
 
     @staticmethod
-    def _snapshot(service: AzureService) -> ServiceState:
+    def _snapshot(service: DiscoveredService) -> ServiceState:
         return ServiceState(
             instance_ids=frozenset(inst.instance_id for inst in service.instances),
             count=service.active_count,

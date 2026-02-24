@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from haproxy_azure_discovery.discovery.change_detector import ChangeDetector
-from haproxy_azure_discovery.discovery.models import AzureService, DiscoveredInstance
+from haproxy_cloud_discovery.discovery.change_detector import ChangeDetector
+from haproxy_cloud_discovery.discovery.models import DiscoveredService, DiscoveredInstance
 
 
 def _inst(instance_id="id1", created_at=None):
@@ -14,14 +14,14 @@ def _inst(instance_id="id1", created_at=None):
         service_name="app",
         service_port=80,
         region="eastus",
-        resource_group="rg1",
+        namespace="rg1",
         source="vm",
         created_at=created_at,
     )
 
 
 def _svc(instances):
-    svc = AzureService(service_name="app", service_port=80, region="eastus")
+    svc = DiscoveredService(service_name="app", service_port=80, region="eastus")
     svc.instances = list(instances)
     return svc
 

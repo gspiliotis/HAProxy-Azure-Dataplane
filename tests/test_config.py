@@ -6,8 +6,8 @@ import tempfile
 import pytest
 import yaml
 
-from haproxy_azure_discovery.config import AppConfig, load_config
-from haproxy_azure_discovery.exceptions import ConfigError
+from haproxy_cloud_discovery.config import AppConfig, load_config
+from haproxy_cloud_discovery.exceptions import ConfigError
 
 
 def _write_config(tmp_path, data: dict) -> str:
@@ -21,6 +21,7 @@ class TestLoadConfig:
         data = {"azure": {"subscription_id": "sub-123"}}
         config = load_config(_write_config(tmp_path, data))
         assert config.azure.subscription_id == "sub-123"
+        assert config.aws is None
         assert config.haproxy.server_slots.base == 10
         assert config.polling.interval_seconds == 30
 
@@ -30,8 +31,32 @@ class TestLoadConfig:
 
     def test_missing_subscription_id_raises(self, tmp_path):
         data = {"azure": {"resource_groups": ["rg1"]}}
-        with pytest.raises(ConfigError, match="subscription_id"):
+        with pytest.raises(ConfigError, match="No cloud provider"):
             load_config(_write_config(tmp_path, data))
+
+    def test_neither_provider_raises(self, tmp_path):
+        data = {"haproxy": {"base_url": "http://localhost:5555"}}
+        with pytest.raises(ConfigError, match="No cloud provider"):
+            load_config(_write_config(tmp_path, data))
+
+    def test_both_providers_raises(self, tmp_path):
+        data = {
+            "azure": {"subscription_id": "sub-123"},
+            "aws": {"region": "us-east-1"},
+        }
+        with pytest.raises(ConfigError, match="Both 'azure' and 'aws'"):
+            load_config(_write_config(tmp_path, data))
+
+    def test_aws_minimal_valid_config(self, tmp_path):
+        data = {"aws": {"region": "us-east-1"}}
+        config = load_config(_write_config(tmp_path, data))
+        assert config.aws.region == "us-east-1"
+        assert config.azure is None
+
+    def test_aws_with_profile(self, tmp_path):
+        data = {"aws": {"region": "us-west-2", "credential_profile": "prod"}}
+        config = load_config(_write_config(tmp_path, data))
+        assert config.aws.credential_profile == "prod"
 
     def test_server_slots_base_too_low(self, tmp_path):
         data = {
@@ -112,7 +137,7 @@ class TestLoadConfig:
         data = {
             "azure": {"subscription_id": "sub-123"},
             "haproxy": {
-                "availability_zone": 2,
+                "availability_zone": "2",  # must be a string
                 "az_weight_tag": "Custom:AZ:Tag",
                 "backend_options": {
                     "MyApp": {
@@ -122,11 +147,28 @@ class TestLoadConfig:
             },
         }
         config = load_config(_write_config(tmp_path, data))
-        assert config.haproxy.availability_zone == 2
+        assert config.haproxy.availability_zone == "2"
         assert config.haproxy.az_weight_tag == "Custom:AZ:Tag"
         assert config.haproxy.backend_options == {
             "MyApp": {"cookie": {"name": "STICK", "type": "insert"}},
         }
+
+    def test_aws_az_string(self, tmp_path):
+        data = {
+            "aws": {"region": "us-east-1"},
+            "haproxy": {"availability_zone": "us-east-1a"},
+        }
+        config = load_config(_write_config(tmp_path, data))
+        assert config.haproxy.availability_zone == "us-east-1a"
+
+    def test_integer_availability_zone_raises(self, tmp_path):
+        """YAML integer (e.g. `availability_zone: 1`) must be rejected with a clear error."""
+        data = {
+            "azure": {"subscription_id": "sub-123"},
+            "haproxy": {"availability_zone": 2},  # integer — should fail
+        }
+        with pytest.raises(ConfigError, match="must be a string"):
+            load_config(_write_config(tmp_path, data))
 
     def test_az_fields_defaults(self, tmp_path):
         data = {"azure": {"subscription_id": "sub-123"}}

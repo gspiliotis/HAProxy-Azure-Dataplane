@@ -8,7 +8,7 @@ import sys
 
 from .config import AppConfig, load_config
 from .daemon import Daemon
-from .exceptions import AzureDiscoveryError, ConfigError
+from .exceptions import ConfigError, DiscoveryError
 from .logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="haproxy-azure-discovery",
-        description="Azure Service Discovery Daemon for HAProxy",
+        prog="haproxy-cloud-discovery",
+        description="Multi-cloud Service Discovery Daemon for HAProxy",
     )
     parser.add_argument(
         "-c", "--config",
@@ -62,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
             daemon.run_once()
         else:
             daemon.run()
-    except AzureDiscoveryError as exc:
+    except DiscoveryError as exc:
         logger.error("Fatal error: %s", exc)
         return 1
     except KeyboardInterrupt:

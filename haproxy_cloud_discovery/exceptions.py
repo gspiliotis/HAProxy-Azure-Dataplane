@@ -1,15 +1,19 @@
-"""Custom exception hierarchy for the Azure discovery daemon."""
+"""Custom exception hierarchy for the cloud discovery daemon."""
 
 
-class AzureDiscoveryError(Exception):
+class DiscoveryError(Exception):
     """Base exception for all daemon errors."""
 
 
-class ConfigError(AzureDiscoveryError):
+# Backward-compatibility alias
+AzureDiscoveryError = DiscoveryError
+
+
+class ConfigError(DiscoveryError):
     """Invalid or missing configuration."""
 
 
-class DataplaneAPIError(AzureDiscoveryError):
+class DataplaneAPIError(DiscoveryError):
     """Error communicating with the HAProxy Dataplane API."""
 
     def __init__(self, message: str, status_code: int | None = None, response_body: str | None = None):

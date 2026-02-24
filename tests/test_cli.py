@@ -3,7 +3,7 @@
 import yaml
 import pytest
 
-from haproxy_azure_discovery.cli import main
+from haproxy_cloud_discovery.cli import main
 
 
 class TestCLI:

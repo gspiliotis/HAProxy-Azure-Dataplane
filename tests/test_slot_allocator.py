@@ -1,7 +1,7 @@
 """Tests for the slot allocator."""
 
-from haproxy_azure_discovery.config import ServerSlotsConfig
-from haproxy_azure_discovery.haproxy.slot_allocator import SlotAllocator
+from haproxy_cloud_discovery.config import ServerSlotsConfig
+from haproxy_cloud_discovery.haproxy.slot_allocator import SlotAllocator
 
 
 class TestSlotAllocator:

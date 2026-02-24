@@ -1,5 +1,5 @@
 [Unit]
-Description=Azure Service Discovery Daemon for HAProxy
+Description=Multi-cloud Service Discovery Daemon for HAProxy
 After=network-online.target haproxy.service
 Wants=network-online.target
 
@@ -7,12 +7,12 @@ Wants=network-online.target
 Type=simple
 User=haproxy
 Group=haproxy
-ExecStart=/usr/local/bin/haproxy-azure-discovery -c /etc/haproxy-azure-discovery/config.yaml
+ExecStart=/usr/local/bin/haproxy-cloud-discovery -c /etc/haproxy-cloud-discovery/config.yaml
 Restart=on-failure
 RestartSec=10
 
-# Environment file for secrets (AZURE_SUBSCRIPTION_ID, HAPROXY_DATAPLANE_PASSWORD, etc.)
-EnvironmentFile=-/etc/haproxy-azure-discovery/env
+# Environment file for secrets (cloud credentials, HAPROXY_DATAPLANE_PASSWORD, etc.)
+EnvironmentFile=-/etc/haproxy-cloud-discovery/env
 
 # Security hardening
 NoNewPrivileges=yes
@@ -27,7 +27,7 @@ RestrictSUIDSGID=yes
 RestrictRealtime=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-ReadOnlyPaths=/etc/haproxy-azure-discovery
+ReadOnlyPaths=/etc/haproxy-cloud-discovery
 
 [Install]
 WantedBy=multi-user.target

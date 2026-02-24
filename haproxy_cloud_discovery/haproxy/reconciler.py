@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from ..config import HAProxyConfig
-from ..discovery.models import AzureService, DiscoveredInstance
+from ..discovery.models import DiscoveredInstance, DiscoveredService
 from ..exceptions import DataplaneVersionConflict
 from .dataplane_client import DataplaneClient
 from .slot_allocator import SlotAllocator
@@ -18,7 +18,7 @@ MAX_VERSION_RETRIES = 3
 
 
 class Reconciler:
-    """Reconciles discovered Azure services with HAProxy backends/servers."""
+    """Reconciles discovered cloud services with HAProxy backends/servers."""
 
     def __init__(self, config: HAProxyConfig):
         self._client = DataplaneClient(config)
@@ -30,7 +30,7 @@ class Reconciler:
 
     def reconcile(
         self,
-        changed_services: list[AzureService],
+        changed_services: list[DiscoveredService],
         removed_keys: list[tuple[str, int, str]],
     ) -> None:
         """Reconcile all changes in a single atomic transaction.
@@ -57,7 +57,7 @@ class Reconciler:
 
     def _do_reconcile(
         self,
-        changed_services: list[AzureService],
+        changed_services: list[DiscoveredService],
         removed_keys: list[tuple[str, int, str]],
     ) -> None:
         with Transaction(self._client) as txn:
@@ -72,7 +72,7 @@ class Reconciler:
 
     # ── Changed service reconciliation ──────────────────────────────
 
-    def _reconcile_service(self, txn: Transaction, service: AzureService) -> None:
+    def _reconcile_service(self, txn: Transaction, service: DiscoveredService) -> None:
         backend_name = service.backend_name(self._backend_cfg.name_prefix, self._backend_cfg.name_separator)
         logger.info(
             "Reconciling service %s (%d instances) -> backend %s",

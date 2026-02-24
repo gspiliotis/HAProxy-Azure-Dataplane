@@ -2,11 +2,14 @@
 
 from datetime import datetime, timezone
 
-from haproxy_azure_discovery.discovery.models import (
-    AzureService,
+from haproxy_cloud_discovery.discovery.models import (
+    DiscoveredService,
     DiscoveredInstance,
     group_instances,
 )
+
+# Backward-compat alias still works
+AzureService = DiscoveredService
 
 
 def _make_instance(
@@ -26,7 +29,7 @@ def _make_instance(
         service_name=service_name,
         service_port=service_port,
         region=region,
-        resource_group="rg1",
+        namespace="rg1",
         source="vm",
         instance_port=instance_port,
         **kwargs,
@@ -55,13 +58,17 @@ class TestDiscoveredInstance:
             pass
 
 
-class TestAzureService:
+class TestDiscoveredService:
     def test_backend_name(self):
-        svc = AzureService(service_name="myapp", service_port=8080, region="eastus")
+        svc = DiscoveredService(service_name="myapp", service_port=8080, region="eastus")
         assert svc.backend_name("azure", "-") == "azure-myapp-8080-eastus"
 
+    def test_backend_name_aws(self):
+        svc = DiscoveredService(service_name="myapp", service_port=80, region="us-east-2")
+        assert svc.backend_name("aws", "-") == "aws-myapp-80-us-east-2"
+
     def test_active_count(self):
-        svc = AzureService(service_name="x", service_port=80, region="y")
+        svc = DiscoveredService(service_name="x", service_port=80, region="y")
         svc.instances.append(_make_instance())
         svc.instances.append(_make_instance(instance_id="id2"))
         assert svc.active_count == 2
@@ -78,6 +85,8 @@ class TestGroupInstances:
         assert len(groups) == 2
         assert groups[("a", 80, "east")].active_count == 2
         assert groups[("b", 443, "west")].active_count == 1
+        # Returns DiscoveredService instances
+        assert isinstance(groups[("a", 80, "east")], DiscoveredService)
 
     def test_empty_list(self):
         assert group_instances([]) == {}

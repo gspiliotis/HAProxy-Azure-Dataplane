@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import re
+import types
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,13 @@ class AzureConfig:
 
 
 @dataclass(frozen=True)
+class AWSConfig:
+    region: str = ""
+    account_id: str = ""  # optional; used only for logging/identification
+    credential_profile: str = ""  # empty = use default boto3 credential chain
+
+
+@dataclass(frozen=True)
 class TagsConfig:
     service_name_tag: str = "HAProxy:Service:Name"
     service_port_tag: str = "HAProxy:Service:Port"
@@ -80,7 +89,7 @@ class HAProxyConfig:
     verify_ssl: bool = True
     backend: BackendConfig = field(default_factory=BackendConfig)
     server_slots: ServerSlotsConfig = field(default_factory=ServerSlotsConfig)
-    availability_zone: int | None = None
+    availability_zone: str | None = None  # "1"/"2"/"3" for Azure, "us-east-1a" etc. for AWS
     az_weight_tag: str = "HAProxy:Instance:AZperc"
     backend_options: dict = field(default_factory=dict)
 
@@ -101,11 +110,30 @@ class LoggingConfig:
 
 @dataclass(frozen=True)
 class AppConfig:
-    azure: AzureConfig = field(default_factory=AzureConfig)
+    azure: AzureConfig | None = None
+    aws: AWSConfig | None = None
     tags: TagsConfig = field(default_factory=TagsConfig)
     haproxy: HAProxyConfig = field(default_factory=HAProxyConfig)
     polling: PollingConfig = field(default_factory=PollingConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+
+
+def _get_dataclass_type(ft: Any) -> type | None:
+    """Return the underlying dataclass type from a type annotation (handles Optional/X|None)."""
+    if isinstance(ft, type) and hasattr(ft, "__dataclass_fields__"):
+        return ft
+    # Handle X | None (Python 3.10+ types.UnionType — no __origin__, has __args__)
+    if isinstance(ft, types.UnionType):
+        args = [a for a in ft.__args__ if a is not type(None)]
+        if len(args) == 1 and isinstance(args[0], type) and hasattr(args[0], "__dataclass_fields__"):
+            return args[0]
+    # Handle typing.Optional[X] → Union[X, None]
+    origin = getattr(ft, "__origin__", None)
+    if origin is typing.Union:
+        args = [a for a in ft.__args__ if a is not type(None)]
+        if len(args) == 1 and isinstance(args[0], type) and hasattr(args[0], "__dataclass_fields__"):
+            return args[0]
+    return None
 
 
 def _build_nested(cls: type, data: dict[str, Any]) -> Any:
@@ -121,8 +149,9 @@ def _build_nested(cls: type, data: dict[str, Any]) -> Any:
         # Resolve string annotations to actual types in the module scope
         if isinstance(ft, str):
             ft = eval(ft, globals(), {cls.__name__: cls})  # noqa: S307
-        if isinstance(ft, type) and hasattr(ft, "__dataclass_fields__") and isinstance(value, dict):
-            kwargs[key] = _build_nested(ft, value)
+        dc_type = _get_dataclass_type(ft)
+        if dc_type is not None and isinstance(value, dict):
+            kwargs[key] = _build_nested(dc_type, value)
         else:
             kwargs[key] = value
     return cls(**kwargs)
@@ -148,8 +177,25 @@ def load_config(path: str | Path) -> AppConfig:
 
 def _validate(config: AppConfig) -> None:
     """Validate configuration values."""
-    if not config.azure.subscription_id:
-        raise ConfigError("azure.subscription_id is required")
+    # Exactly one cloud provider must be configured
+    has_azure = config.azure is not None and bool(config.azure.subscription_id)
+    has_aws = config.aws is not None and bool(config.aws.region)
+
+    if has_azure and has_aws:
+        raise ConfigError(
+            "Both 'azure' and 'aws' sections are configured — only one cloud provider may be active at a time"
+        )
+    if not has_azure and not has_aws:
+        raise ConfigError(
+            "No cloud provider configured. Add an 'azure' section (with subscription_id) "
+            "or an 'aws' section (with region) to your config file."
+        )
+
+    if isinstance(config.haproxy.availability_zone, int):
+        raise ConfigError(
+            "haproxy.availability_zone must be a string, not an integer "
+            "(e.g., '1' for Azure zone 1, 'us-east-1a' for AWS)"
+        )
 
     if config.haproxy.server_slots.base < 10:
         raise ConfigError("haproxy.server_slots.base must be >= 10")

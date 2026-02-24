@@ -61,5 +61,8 @@ def configure_logging(config: LoggingConfig) -> None:
     root.addHandler(handler)
 
     # Suppress noisy loggers
-    for noisy in ("azure", "urllib3", "msrest", "msal", "azure.identity", "azure.core"):
+    for noisy in (
+        "azure", "urllib3", "msrest", "msal", "azure.identity", "azure.core",
+        "boto3", "botocore", "s3transfer",
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)

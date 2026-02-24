@@ -1,17 +1,17 @@
 %global python3_version 3.11
 %global python3_pkgversion 3.11
-%global pypi_name haproxy-azure-discovery
-%global pkg_name haproxy_azure_discovery
+%global pypi_name haproxy-cloud-discovery
+%global pkg_name haproxy_cloud_discovery
 %global install_dir /opt/%{pypi_name}
 %global debug_package %{nil}
 
 Name:           %{pypi_name}
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
-Summary:        Azure Service Discovery Daemon for HAProxy
+Summary:        Multi-cloud Service Discovery Daemon for HAProxy
 
 License:        MIT
-URL:            https://github.com/gspiliotis/%{pypi_name}
+URL:            https://github.com/intacct/%{pypi_name}
 Source0:        %{pypi_name}-%{version}.tar.gz
 
 # Oracle Linux 8 — Python 3.11 from AppStream
@@ -28,13 +28,16 @@ Requires(preun): systemd
 Requires(postun): systemd
 
 %description
-A Python daemon that automatically discovers Azure VMs and Virtual Machine
-Scale Set (VMSS) instances and registers them as HAProxy backends via the
+A Python daemon that automatically discovers VMs and Auto Scaling Group
+instances from Azure or AWS and registers them as HAProxy backends via the
 Dataplane API. Supports AZ-aware server weighting, cookie-based persistence,
 and per-service backend options.
 
-This is the Azure equivalent of the AWS EC2 service discovery built into
-HAProxy's Go codebase — runs as an external sidecar.
+For Azure: discovers VMs and VMSS instances.
+For AWS:   discovers EC2 instances and Auto Scaling Group members.
+
+Provider is selected at runtime by which section (azure: or aws:) is
+populated in the config file.
 
 # ---------------------------------------------------------------------------
 # Prep / Build / Install
@@ -96,7 +99,7 @@ touch %{buildroot}/etc/%{pypi_name}/env
 getent group haproxy >/dev/null || groupadd -r haproxy
 getent passwd haproxy >/dev/null || \
     useradd -r -g haproxy -d /nonexistent -s /sbin/nologin \
-        -c "HAProxy Azure Discovery" haproxy
+        -c "HAProxy Cloud Discovery" haproxy
 exit 0
 
 %post
@@ -136,6 +139,12 @@ exit 0
 # ---------------------------------------------------------------------------
 
 %changelog
+* Tue Feb 24 2026 George Spiliotis <g@spiliotis.net> - 0.2.0-1
+- Multi-cloud support: AWS EC2 and Auto Scaling Groups alongside Azure
+- Rename package to haproxy-cloud-discovery
+- availability_zone config field changed to string type
+- Cloud provider selected at runtime by config section (azure: or aws:)
+
 * Fri Feb 20 2026 George Spiliotis <g@spiliotis.net> - 0.1.0-1
 - Initial RPM package
 - AZ-aware server weighting and per-service backend options

@@ -9,6 +9,7 @@ import time
 from types import FrameType
 
 from .config import AppConfig
+from .discovery import CloudDiscoveryClient
 from .discovery.azure_client import AzureClient
 from .discovery.change_detector import ChangeDetector
 from .discovery.models import group_instances
@@ -23,12 +24,23 @@ class Daemon:
 
     def __init__(self, config: AppConfig):
         self._config = config
-        self._azure_client = AzureClient(config.azure, config.tags)
+        self._client: CloudDiscoveryClient = self._build_client(config)
         self._tag_filter = TagFilter(config.tags)
         self._change_detector = ChangeDetector()
         self._reconciler = Reconciler(config.haproxy)
         self._shutdown = False
         self._consecutive_failures = 0
+
+    @staticmethod
+    def _build_client(config: AppConfig) -> CloudDiscoveryClient:
+        """Instantiate the appropriate cloud discovery client based on config."""
+        if config.azure is not None and config.azure.subscription_id:
+            return AzureClient(config.azure, config.tags)
+        if config.aws is not None and config.aws.region:
+            from .discovery.aws_client import AWSClient  # lazy import keeps azure SDK optional
+            return AWSClient(config.aws, config.tags)
+        # Should not reach here — _validate() enforces one-provider-only
+        raise RuntimeError("No cloud provider configured")
 
     def run_once(self) -> None:
         """Execute a single discovery + reconciliation cycle."""
@@ -64,7 +76,7 @@ class Daemon:
         start = time.monotonic()
 
         # Discover
-        instances = self._azure_client.discover_all()
+        instances = self._client.discover_all()
 
         # Filter
         instances = self._tag_filter.apply(instances)

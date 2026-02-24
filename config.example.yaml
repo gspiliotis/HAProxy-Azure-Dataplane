@@ -1,11 +1,25 @@
-# Azure Service Discovery for HAProxy — Example Configuration
+# HAProxy Cloud Discovery — Example Configuration
 # Copy to config.yaml and adjust values. Use ${ENV_VAR} for secrets.
+#
+# PROVIDER SELECTION: populate exactly ONE of the 'azure:' or 'aws:' sections.
+# Leave the other section commented out entirely.
 
-azure:
-  subscription_id: "${AZURE_SUBSCRIPTION_ID}"
-  # Optional: limit discovery to specific resource groups (empty = all)
-  resource_groups: []
-  credential_type: "default"  # Uses DefaultAzureCredential
+# ── Azure provider ──────────────────────────────────────────────────────────
+# Uncomment and fill in to use Azure (VMs + VMSS).
+#
+# azure:
+#   subscription_id: "${AZURE_SUBSCRIPTION_ID}"
+#   # Optional: limit discovery to specific resource groups (empty = all)
+#   resource_groups: []
+#   credential_type: "default"  # Uses DefaultAzureCredential
+
+# ── AWS provider ────────────────────────────────────────────────────────────
+# Uncomment and fill in to use AWS (EC2 instances + Auto Scaling Groups).
+#
+# aws:
+#   region: "${AWS_REGION}"          # e.g. "us-east-2"
+#   account_id: ""                   # optional, used in logs only
+#   credential_profile: ""           # optional named profile; empty = default chain
 
 tags:
   service_name_tag: "HAProxy:Service:Name"
@@ -26,6 +40,8 @@ haproxy:
   timeout: 10
   verify_ssl: true
   backend:
+    # name_prefix is prepended to every backend name: <prefix>-<service>-<port>-<region>
+    # Use "azure" for Azure deployments, "aws" for AWS deployments.
     name_prefix: "azure"
     name_separator: "-"
     balance: "roundrobin"
@@ -36,7 +52,11 @@ haproxy:
     growth_type: "linear"  # "linear" or "exponential"
 
   # ── AZ-aware routing ──────────────────────────────────────────────
-  # Azure Availability Zone where this HAProxy instance runs (1, 2, or 3).
+  # The Availability Zone where this HAProxy instance runs.
+  # Must be a STRING:
+  #   - Azure: "1", "2", or "3"
+  #   - AWS:   "us-east-1a", "us-east-2b", etc.
+  #
   # Omit or set to null to disable AZ-aware routing entirely.
   #
   # When set, servers are annotated based on AZ proximity:
@@ -47,20 +67,20 @@ haproxy:
   #
   # All active servers always get a "cookie" value equal to the server name.
   #
-  # availability_zone: 1
+  # availability_zone: "1"           # Azure example
+  # availability_zone: "us-east-1a"  # AWS example
 
-  # Tag name on Azure VMs/VMSS instances that carries the AZ weight percentage.
-  # Value must be an integer 1-99. For example, AZperc=10 means:
+  # Tag name on instances that carries the AZ weight percentage.
+  # Value must be an integer string 1-99. Example: AZperc=10 means:
   #   - Same-AZ servers get weight 90 (100-10)
   #   - Cross-AZ servers get weight 10
-  # Default: "HAProxy:Instance:AZperc"
   #
   # az_weight_tag: "HAProxy:Instance:AZperc"
 
   # ── Per-service backend options ──────────────────────────────────
   # Extra properties merged into the Dataplane API create-backend payload
   # when a backend is first created. Keyed by the service name tag value
-  # (i.e. the value of HAProxy:Service:Name on the Azure resources).
+  # (i.e. the value of HAProxy:Service:Name on the instances).
   #
   # Any valid Dataplane API backend field can be used here — common
   # examples include cookie stickiness, custom timeouts, and HTTP options.

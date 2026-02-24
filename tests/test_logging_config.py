@@ -3,8 +3,8 @@
 import json
 import logging
 
-from haproxy_azure_discovery.config import LoggingConfig
-from haproxy_azure_discovery.logging_config import JSONFormatter, TextFormatter, configure_logging
+from haproxy_cloud_discovery.config import LoggingConfig
+from haproxy_cloud_discovery.logging_config import JSONFormatter, TextFormatter, configure_logging
 
 
 class TestJSONFormatter:
@@ -51,3 +51,5 @@ class TestConfigureLogging:
         configure_logging(LoggingConfig())
         assert logging.getLogger("azure").level >= logging.WARNING
         assert logging.getLogger("urllib3").level >= logging.WARNING
+        assert logging.getLogger("boto3").level >= logging.WARNING
+        assert logging.getLogger("botocore").level >= logging.WARNING

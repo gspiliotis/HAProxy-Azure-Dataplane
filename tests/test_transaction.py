@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from haproxy_azure_discovery.exceptions import DataplaneAPIError, DataplaneVersionConflict
-from haproxy_azure_discovery.haproxy.transaction import Transaction
+from haproxy_cloud_discovery.exceptions import DataplaneAPIError, DataplaneVersionConflict
+from haproxy_cloud_discovery.haproxy.transaction import Transaction
 
 
 def _mock_client(version=1, txn_id="txn-abc"):

@@ -3,9 +3,9 @@
 import pytest
 import responses
 
-from haproxy_azure_discovery.config import HAProxyConfig
-from haproxy_azure_discovery.exceptions import DataplaneAPIError, DataplaneVersionConflict
-from haproxy_azure_discovery.haproxy.dataplane_client import DataplaneClient
+from haproxy_cloud_discovery.config import HAProxyConfig
+from haproxy_cloud_discovery.exceptions import DataplaneAPIError, DataplaneVersionConflict
+from haproxy_cloud_discovery.haproxy.dataplane_client import DataplaneClient
 
 BASE_V2 = "http://localhost:5555/v2"
 BASE_V3 = "http://localhost:5555/v3"

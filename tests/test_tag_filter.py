@@ -1,8 +1,8 @@
 """Tests for tag filtering."""
 
-from haproxy_azure_discovery.config import TagsConfig
-from haproxy_azure_discovery.discovery.models import DiscoveredInstance
-from haproxy_azure_discovery.discovery.tag_filter import TagFilter
+from haproxy_cloud_discovery.config import TagsConfig
+from haproxy_cloud_discovery.discovery.models import DiscoveredInstance
+from haproxy_cloud_discovery.discovery.tag_filter import TagFilter
 
 
 def _inst(tags: dict[str, str], name: str = "vm1") -> DiscoveredInstance:
@@ -13,7 +13,7 @@ def _inst(tags: dict[str, str], name: str = "vm1") -> DiscoveredInstance:
         service_name="app",
         service_port=80,
         region="eastus",
-        resource_group="rg1",
+        namespace="rg1",
         source="vm",
         tags=tags,
     )
